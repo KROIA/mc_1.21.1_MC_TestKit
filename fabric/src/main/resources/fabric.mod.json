@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "id": "testkit",
+  "version": "${version}",
+  "name": "TestKit",
+  "description": "Dev-only in-game test framework for Kroia's mods. Never released.",
+  "authors": [
+    "KROIA"
+  ],
+  "license": "All Rights Reserved",
+  "environment": "*",
+  "entrypoints": {
+    "main": [
+      "net.kroia.testkit.fabric.TestKitFabric"
+    ]
+  },
+  "depends": {
+    "fabricloader": ">=0.16.9",
+    "minecraft": "${minecraft_version}",
+    "java": ">=21",
+    "architectury": ">=13.0.8",
+    "fabric-api": "*"
+  }
+}
