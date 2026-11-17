@@ -13,7 +13,9 @@ import java.util.function.Consumer;
  * @param text      the text the element draws ("" if none)
  * @param name      a stable test name, if the element has one
  * @param textWidth width of {@code text} in GUI pixels with the game font (0 if no text)
- * @param handle    the element object itself, for checks on its state (an EditBox's value, a slider's value)
+ * @param handle    the element object itself, for checks on its state (an EditBox's value, a slider's value).
+ *                  The node is a snapshot taken on the client thread; read the live handle only inside
+ *                  {@link Gui#onClient}, e.g. {@code Gui.onClient(() -> ((EditBox) node.handle()).getValue())}.
  */
 public record GuiNode(String type, String text, @Nullable String name, int x, int y, int width, int height,
                       int textWidth, boolean visible, List<GuiNode> children, @Nullable Object handle) {

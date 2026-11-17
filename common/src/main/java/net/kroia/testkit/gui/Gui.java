@@ -32,6 +32,9 @@ import java.util.function.Supplier;
  * Gui.key(Keys.ENTER);
  * return assertTrue(Gui.layoutProblems().toString(), Gui.layoutProblems().isEmpty());
  * }</pre>
+ * Threading: every method that reads or changes screen state runs on the client thread ({@link #onClient}: submit
+ * and wait); only the waiting happens on the test thread. Element lists are snapshots taken on the client thread.
+ * Screens and element handles a test holds must be touched only inside {@link #onClient}.
  * Coordinates are GUI-scaled. The OS cursor is never moved; hover effects that read the real cursor position
  * (tooltips) are not driven.
  */
@@ -132,7 +135,10 @@ public final class Gui {
         waitTicks(1);
     }
 
-    /** @return the open screen once it is of this type; throws if it does not open within {@code maxTicks}. */
+    /**
+     * @return the open screen once it is of this type; throws if it does not open within {@code maxTicks}.
+     * Touch the returned screen only inside {@link #onClient}: Minecraft's GUI is not thread-safe.
+     */
     public static <T extends Screen> T waitForScreen(Class<T> type, int maxTicks) {
         if (!waitUntil(() -> type.isInstance(ClientCompat.screen()), maxTicks))
             throw new IllegalStateException("screen " + type.getSimpleName() + " did not open within " + maxTicks
