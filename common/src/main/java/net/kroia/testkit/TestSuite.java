@@ -44,10 +44,10 @@ public abstract class TestSuite {
          */
         CLIENT,
         /**
-         * Scenario suite (several players, several servers). It runs on every server of the setup, on its own test
-         * thread, after the server suites, so the server keeps ticking while a step waits for another server.
-         * Build its tests with {@link net.kroia.testkit.scenario.Scenario}; touch the server only inside
-         * {@link net.kroia.testkit.scenario.Scenario#onServer}.
+         * Suite that waits for ticks: world tests ({@link net.kroia.testkit.world.TestArea}) and scenarios across
+         * servers ({@link net.kroia.testkit.scenario.Scenario}). It runs on every server of the setup, on its own test
+         * thread, after the server suites, so the server keeps ticking while a test waits. Touch the server only
+         * through those helpers or {@link net.kroia.testkit.scenario.Scenario#onServer}.
          */
         SCENARIO
     }
