@@ -17,7 +17,9 @@ import java.util.concurrent.TimeoutException;
 /**
  * Scripted screenshots for the documentation, taken from a client test suite (test thread, like {@link Gui}).
  * Each shot is taken in a fixed {@link Scene}: window size, GUI scale, time of day, clear weather, HUD hidden.
- * The window size and GUI scale are restored afterwards; time and weather are left as set.
+ * Everything is restored afterwards: window size, GUI scale, HUD, the time of day (advanced by the ticks the shot
+ * took) and the weather state (clear, rain or thunder; the remaining weather duration is not kept, vanilla commands
+ * cannot set it back). No gamerules are changed.
  * <pre>{@code
  * Gui.open(new BankScreen());
  * Path file = Screenshots.take("banksystem/bank_screen.png");
@@ -51,6 +53,11 @@ public final class Screenshots {
     /** Sets the scene, captures the next finished frame as PNG to {@code path}, restores the window. */
     public static Path take(String path, Scene scene) {
         Path file = resolve(path);
+        long[] world = Gui.onClient(() -> {
+            var level = Minecraft.getInstance().level;
+            if (level == null) throw new IllegalStateException("no world: screenshots need a joined world");
+            return new long[]{level.getDayTime(), level.getGameTime(), level.isThundering() ? 2 : level.isRaining() ? 1 : 0};
+        });
         int[] old = Gui.onClient(() -> {
             var w = Minecraft.getInstance().getWindow();
             return new int[]{w.getScreenWidth(), w.getScreenHeight(), Minecraft.getInstance().options.guiScale().get(), ClientCompat.isHudHidden() ? 1 : 0};
@@ -81,6 +88,9 @@ public final class Screenshots {
                 ClientCompat.setHudHidden(old[3] == 1);
             });
             Gui.setGuiScale(old[2]);
+            long elapsed = Gui.onClient(() -> Minecraft.getInstance().level.getGameTime()) - world[1];
+            Gui.sendCommand("time set " + (world[0] + elapsed));
+            Gui.sendCommand(world[2] == 2 ? "weather thunder" : world[2] == 1 ? "weather rain" : "weather clear");
         }
     }
 
