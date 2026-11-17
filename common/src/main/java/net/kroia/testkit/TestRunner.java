@@ -33,6 +33,8 @@ public class TestRunner {
     private final String modId;
     private final boolean isSlave;
     private final @Nullable MinecraftServer server;
+    /** Runs only client suites (GUI tests) instead of only server suites. */
+    private final boolean client;
 
     /**
      * Plain-text report of the current run, flushed to {@link #logFile()} when the run ends.
@@ -52,10 +54,16 @@ public class TestRunner {
     private @Nullable Appender captureAppender;
 
     public TestRunner(String modName, String modId, boolean isSlave, @Nullable MinecraftServer server) {
-        this.prefix = "[" + modName + " Test] ";
+        this(modName, modId, isSlave, server, false);
+    }
+
+    /** @param client true: run only the client (GUI) suites, on the calling test thread; report to {@code <modId>-gui.log} */
+    public TestRunner(String modName, String modId, boolean isSlave, @Nullable MinecraftServer server, boolean client) {
+        this.prefix = "[" + modName + (client ? " GUI" : "") + " Test] ";
         this.modId = modId;
         this.isSlave = isSlave;
         this.server = server;
+        this.client = client;
     }
 
     /** @return per-suite results of every suite this runner has run so far. */
@@ -78,6 +86,7 @@ public class TestRunner {
 
         for (TestSuite suite : suites) {
             TestCategory category = suite.getCategory();
+            if (suite.runsOnClient() != client) continue; // the other side runs it
             if (TestRegistry.isExcluded(suite)) { // not run, not counted; AutoTest reports it as excluded
                 log.append("EXCLUDED ").append(TestRegistry.topicKey(suite)).append('\n');
                 continue;
@@ -86,7 +95,7 @@ public class TestRunner {
                 log.append("OFFLINE ").append(TestRegistry.topicKey(suite)).append('\n');
                 continue;
             }
-            if (!category.canRunOn(isSlave)) {
+            if (!client && !category.canRunOn(isSlave)) {
                 totalSkipped += suite.getTestCount();
                 continue;
             }
@@ -128,7 +137,7 @@ public class TestRunner {
         boolean found = false;
 
         for (TestSuite suite : suites) {
-            if (suite.getCategory() == category) {
+            if (suite.getCategory() == category && suite.runsOnClient() == client) {
                 found = true;
                 int[] counts = runSuite(suite, player);
                 totalPassed += counts[0];
@@ -390,7 +399,7 @@ public class TestRunner {
 
     /** {@code logs/UnitTests/<modId>.log} — one report file per mod using the test API. */
     private Path logFile() {
-        return Paths.get("logs", "UnitTests", modId + ".log");
+        return Paths.get("logs", "UnitTests", modId + (client ? "-gui" : "") + ".log");
     }
 
     /**

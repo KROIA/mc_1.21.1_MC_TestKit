@@ -32,6 +32,16 @@ public abstract class TestSuite {
         return true;
     }
 
+    /**
+     * True: a GUI suite. It runs only on the game client, on its own test thread, after the client joined and
+     * before the server's suites start; {@link #getServer()} is null. Drive the GUI with
+     * {@link net.kroia.testkit.gui.Gui}. Register such suites only on the client
+     * ({@code Platform.getEnvironment() == Env.CLIENT}), so a dedicated server never loads their client classes.
+     */
+    public boolean runsOnClient() {
+        return false;
+    }
+
     protected void addTest(String name, Supplier<TestResult> test) {
         tests.put(name, test);
     }

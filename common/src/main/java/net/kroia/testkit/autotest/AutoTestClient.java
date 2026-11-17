@@ -6,6 +6,7 @@ import dev.architectury.event.events.client.ClientLifecycleEvent;
 import dev.architectury.event.events.client.ClientTickEvent;
 import net.kroia.testkit.TestKitMod;
 import net.kroia.testkit.compat.ClientCompat;
+import net.kroia.testkit.gui.Gui;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.AlertScreen;
 import net.minecraft.client.gui.screens.BackupConfirmScreen;
@@ -55,7 +56,11 @@ final class AutoTestClient {
     private static boolean started;
     private static boolean joined;
     private static boolean done;
-    private static boolean chatOpened;
+    private static volatile boolean chatOpened;
+    private static boolean guiStarted;
+    private static int joinedTicks;
+    /** Ticks after joining before the GUI tests start (lets the join, syncs and the chat screen settle). */
+    private static final int GUI_SETTLE_TICKS = 40;
     private static boolean warningsDismissed;
     private static int titleTicks;
     /** The last world-open prompt answered: it can stay on screen for a few ticks after the answer. */
@@ -72,6 +77,7 @@ final class AutoTestClient {
     }
 
     private static void tick(Minecraft mc) {
+        Gui.onClientTick();
         if (done) return;
         Screen screen = ClientCompat.screen();
         if (!started) {
@@ -94,6 +100,7 @@ final class AutoTestClient {
             done = chatOpened; // manual play: no quit logic
             return;
         }
+        if (joined && chatOpened && !guiStarted && mc.level != null && ++joinedTicks >= GUI_SETTLE_TICKS) startGuiTests();
         if (AutoTest.isFinished()) {
             finish(mc, "tests_finished");
         } else if (joined && mc.level == null && !mc.isLocalServer()) {
@@ -148,6 +155,26 @@ final class AutoTestClient {
             TestKitMod.LOGGER.error("[AutoTest] client: cannot answer the world prompt", e);
             finish(mc, "world_prompt_failed");
         }
+    }
+
+    /**
+     * Runs the GUI suites on their own thread (they block while waiting for ticks; the client thread must keep
+     * running) and writes {@code <results>.gui.json}, also when there are none, so a dedicated server that waits
+     * for the file ({@code waitGui}) can start. Then reopens the chat screen.
+     */
+    private static void startGuiTests() {
+        guiStarted = true;
+        Thread thread = new Thread(() -> {
+            JsonObject report = AutoTest.header("completed");
+            report.addProperty("side", "client");
+            AutoTest.runSuites(report, true, false, null, null);
+            AutoTest.write(AutoTest.GUI_RESULTS, report);
+            AutoTest.guiDone = true;
+            TestKitMod.LOGGER.info("[AutoTest] client: GUI report written to {}", AutoTest.GUI_RESULTS);
+            chatOpened = false; // the tick reopens it once no test screen is open
+        }, "TestKit-GUI-Tests");
+        thread.setDaemon(true);
+        thread.start();
     }
 
     private static void start(Minecraft mc, Screen parent) {
