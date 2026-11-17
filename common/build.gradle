@@ -12,3 +12,19 @@ dependencies {
     modImplementation "dev.architectury:architectury:$rootProject.architectury_api_version" // mc<=1.21.11
     //implementation "dev.architectury:architectury:$rootProject.architectury_api_version" // mc>=26.1
 }
+
+dependencies {
+    // OfflineTests maps TestSuites to JUnit DynamicTests. compileOnly in main: the mods bring JUnit on their own test classpath.
+    compileOnly "org.junit.jupiter:junit-jupiter-api:5.10.2"
+    testImplementation "org.junit.jupiter:junit-jupiter:5.10.2"
+    testRuntimeOnly "org.junit.platform:junit-platform-launcher:1.10.2"
+}
+
+repositories {
+    mavenCentral()
+}
+
+test {
+    useJUnitPlatform()
+    workingDir = temporaryDir // Minecraft's log4j config writes logs/latest.log into the working directory
+}

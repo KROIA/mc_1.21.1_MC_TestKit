@@ -1,5 +1,6 @@
 package net.kroia.testkit;
 
+import net.kroia.testkit.autotest.AutoTest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -11,5 +12,6 @@ public final class TestKitMod {
 
     public static void init() {
         LOGGER.info("TestKit loaded (dev-only)");
+        AutoTest.init();
     }
 }
