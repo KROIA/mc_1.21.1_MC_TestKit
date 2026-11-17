@@ -33,8 +33,8 @@ public class TestRunner {
     private final String modId;
     private final boolean isSlave;
     private final @Nullable MinecraftServer server;
-    /** Runs only client suites (GUI tests) instead of only server suites. */
-    private final boolean client;
+    /** Runs only the suites of this side. */
+    private final TestSuite.Side side;
 
     /**
      * Plain-text report of the current run, flushed to {@link #logFile()} when the run ends.
@@ -54,16 +54,23 @@ public class TestRunner {
     private @Nullable Appender captureAppender;
 
     public TestRunner(String modName, String modId, boolean isSlave, @Nullable MinecraftServer server) {
-        this(modName, modId, isSlave, server, false);
+        this(modName, modId, isSlave, server, TestSuite.Side.SERVER);
     }
 
-    /** @param client true: run only the client (GUI) suites, on the calling test thread; report to {@code <modId>-gui.log} */
-    public TestRunner(String modName, String modId, boolean isSlave, @Nullable MinecraftServer server, boolean client) {
-        this.prefix = "[" + modName + (client ? " GUI" : "") + " Test] ";
+    /**
+     * @param side run only the suites of this side, on the calling thread; GUI and scenario suites report to
+     *             {@code <modId>-gui.log} / {@code <modId>-scenario.log}
+     */
+    public TestRunner(String modName, String modId, boolean isSlave, @Nullable MinecraftServer server, TestSuite.Side side) {
+        this.prefix = "[" + modName + suffix(side, " GUI", " Scenario") + " Test] ";
         this.modId = modId;
         this.isSlave = isSlave;
         this.server = server;
-        this.client = client;
+        this.side = side;
+    }
+
+    private static String suffix(TestSuite.Side side, String client, String scenario) {
+        return side == TestSuite.Side.CLIENT ? client : side == TestSuite.Side.SCENARIO ? scenario : "";
     }
 
     /** @return per-suite results of every suite this runner has run so far. */
@@ -86,7 +93,7 @@ public class TestRunner {
 
         for (TestSuite suite : suites) {
             TestCategory category = suite.getCategory();
-            if (suite.runsOnClient() != client) continue; // the other side runs it
+            if (suite.side() != side) continue; // another side runs it
             if (TestRegistry.isExcluded(suite)) { // not run, not counted; AutoTest reports it as excluded
                 log.append("EXCLUDED ").append(TestRegistry.topicKey(suite)).append('\n');
                 continue;
@@ -95,7 +102,7 @@ public class TestRunner {
                 log.append("OFFLINE ").append(TestRegistry.topicKey(suite)).append('\n');
                 continue;
             }
-            if (!client && !category.canRunOn(isSlave)) {
+            if (side != TestSuite.Side.CLIENT && !category.canRunOn(isSlave)) {
                 totalSkipped += suite.getTestCount();
                 continue;
             }
@@ -137,7 +144,7 @@ public class TestRunner {
         boolean found = false;
 
         for (TestSuite suite : suites) {
-            if (suite.getCategory() == category && suite.runsOnClient() == client) {
+            if (suite.getCategory() == category && suite.side() == side) {
                 found = true;
                 int[] counts = runSuite(suite, player);
                 totalPassed += counts[0];
@@ -399,7 +406,7 @@ public class TestRunner {
 
     /** {@code logs/UnitTests/<modId>.log} — one report file per mod using the test API. */
     private Path logFile() {
-        return Paths.get("logs", "UnitTests", modId + (client ? "-gui" : "") + ".log");
+        return Paths.get("logs", "UnitTests", modId + suffix(side, "-gui", "-scenario") + ".log");
     }
 
     /**

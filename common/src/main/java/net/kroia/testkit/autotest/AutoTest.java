@@ -64,7 +64,7 @@ import java.util.function.Supplier;
  * only the {@code after} file is still missing (or the settle phase, without {@code after}) until the suites start;
  * the report header gets {@code ticks}, {@code maxTickMs} and {@code avgTickMs}, tests read {@link #tickStats()}.
  * <p>
- * GUI tests ({@link TestSuite#runsOnClient()}) run on the client after it joined, before the server's suites;
+ * GUI tests ({@link TestSuite.Side#CLIENT}) run on the client after it joined, before the server's suites;
  * the client writes them to {@code <results>.gui.json} (same format as the server report). An integrated server
  * waits for them by itself; a dedicated server waits for the file named by {@code waitGui}.
  * <p>
@@ -88,6 +88,7 @@ public final class AutoTest {
     static final boolean PLAY = Boolean.getBoolean(P + ".play");
     private static final @Nullable String WAIT_GUI = System.getProperty(P + ".waitGui");
     static final Path GUI_RESULTS = RESULTS.resolveSibling(RESULTS.getFileName() + ".gui.json");
+    static final Path SCENARIO_RESULTS = RESULTS.resolveSibling(RESULTS.getFileName() + ".scenario.json");
     /** Set by the client when its GUI suites are done (or there are none); read by an integrated server. */
     static volatile boolean guiDone;
     /** Ticks every readiness condition must hold before the run starts (lets joins and syncs settle). */
@@ -120,6 +121,11 @@ public final class AutoTest {
 
     public static boolean isEnabled() {
         return LABEL != null;
+    }
+
+    /** @return this instance's label ({@code -Dmodutilities.autotest=<label>}, e.g. master, slave, client), null when off. */
+    public static @Nullable String label() {
+        return LABEL;
     }
 
     /** @return true in manual play mode (run_matrix.py --play): no tests run. */
@@ -242,7 +248,7 @@ public final class AutoTest {
             String missing = condition.apply(server);
             if (missing != null) return missing;
         }
-        if (!server.isDedicatedServer() && !guiDone && hasClientSuites()) return "the client GUI tests";
+        if (!server.isDedicatedServer() && !guiDone && hasSuites(TestSuite.Side.CLIENT)) return "the client GUI tests";
         if (WAIT_GUI != null && !Files.exists(Paths.get(WAIT_GUI))) return "file " + WAIT_GUI + " (client GUI tests)";
         if (AFTER != null && !Files.exists(Paths.get(AFTER))) return WAITING_AFTER; // last: starts the tick sampling
         return null;
@@ -253,7 +259,25 @@ public final class AutoTest {
         List<ServerPlayer> players = server.getPlayerList().getPlayers();
         ServerPlayer player = players.isEmpty() ? null : players.get(0);
         JsonObject report = header("completed");
-        runSuites(report, false, isSlave, server, player);
+        runSuites(report, TestSuite.Side.SERVER, isSlave, server, player);
+        if (!hasSuites(TestSuite.Side.SCENARIO)) {
+            finish(server, report);
+            return;
+        }
+        // Scenario steps wait for other servers: off the server thread, so this server keeps ticking meanwhile.
+        Thread thread = new Thread(() -> {
+            JsonObject scenarios = header("completed");
+            runSuites(scenarios, TestSuite.Side.SCENARIO, isSlave, server, player);
+            write(SCENARIO_RESULTS, scenarios);
+            TestKitMod.LOGGER.info("[AutoTest] scenario report written to {}", SCENARIO_RESULTS);
+            server.execute(() -> finish(server, report));
+        }, "TestKit-Scenario-Tests");
+        thread.setDaemon(true);
+        thread.start();
+    }
+
+    /** Writes the main report last: run_matrix takes it as "this instance is done". */
+    private static void finish(MinecraftServer server, JsonObject report) {
         write(RESULTS, report);
         finished = true;
         TestKitMod.LOGGER.info("[AutoTest] report written to {}", RESULTS);
@@ -262,11 +286,11 @@ public final class AutoTest {
         }
     }
 
-    /** @return true if a mod selected by {@code mods} registered client (GUI) suites in this JVM. */
-    static boolean hasClientSuites() {
+    /** @return true if a mod selected by {@code mods} registered suites of this side in this JVM. */
+    static boolean hasSuites(TestSuite.Side side) {
         Set<String> filter = modFilter();
         return TestRegistry.getTestSuites().stream()
-                .anyMatch(s -> s.runsOnClient() && (filter == null || filter.contains(s.getCategory().getModId())));
+                .anyMatch(s -> s.side() == side && (filter == null || filter.contains(s.getCategory().getModId())));
     }
 
     private static @Nullable Set<String> modFilter() {
@@ -274,24 +298,24 @@ public final class AutoTest {
     }
 
     /**
-     * Runs the server suites ({@code client} false, on the server thread) or the GUI suites ({@code client} true, on
-     * the client's test thread) of every selected mod and adds {@code mods} and the totals to {@code report}.
+     * Runs the suites of one side (server: on the server thread; GUI: on the client's test thread; scenario: on the
+     * server's test thread) of every selected mod and adds {@code mods} and the totals to {@code report}.
      */
-    static void runSuites(JsonObject report, boolean client, boolean isSlave, @Nullable MinecraftServer server, @Nullable ServerPlayer player) {
+    static void runSuites(JsonObject report, TestSuite.Side side, boolean isSlave, @Nullable MinecraftServer server, @Nullable ServerPlayer player) {
         try {
             Set<String> filter = modFilter();
             Set<String> modIds = new LinkedHashSet<>();
             for (TestSuite suite : TestRegistry.getTestSuites()) {
                 String modId = suite.getCategory().getModId();
-                if (suite.runsOnClient() == client && (filter == null || filter.contains(modId))) modIds.add(modId);
+                if (suite.side() == side && (filter == null || filter.contains(modId))) modIds.add(modId);
             }
             int[] total = new int[5]; // passed, failed, errors, skipped, excluded suites
             JsonObject mods = new JsonObject();
             for (String modId : modIds) {
-                TestKitMod.LOGGER.info("[AutoTest] running {} {}tests (slave={})", modId, client ? "GUI " : "", isSlave);
-                TestRunner runner = new TestRunner(modId, modId, isSlave, server, client);
+                TestKitMod.LOGGER.info("[AutoTest] running {} {} tests (slave={})", modId, side, isSlave);
+                TestRunner runner = new TestRunner(modId, modId, isSlave, server, side);
                 runner.runAll(player);
-                mods.add(modId, modReport(modId, client, isSlave, runner.getResults(), total));
+                mods.add(modId, modReport(modId, side, isSlave, runner.getResults(), total));
             }
             report.add("mods", mods);
             report.addProperty("passed", total[0]);
@@ -306,7 +330,7 @@ public final class AutoTest {
         }
     }
 
-    private static JsonObject modReport(String modId, boolean client, boolean isSlave, Map<String, List<TestResult>> results, int[] total) {
+    private static JsonObject modReport(String modId, TestSuite.Side side, boolean isSlave, Map<String, List<TestResult>> results, int[] total) {
         JsonObject mod = new JsonObject();
         int[] counts = new int[4]; // by TestResult.Status ordinal: PASS, FAIL, ERROR, SKIP
         JsonObject suites = new JsonObject();
@@ -327,7 +351,7 @@ public final class AutoTest {
         // topics: every registered suite (run_matrix caches them in <out>/topics.json for the GUI's topic menu)
         JsonArray skipped = new JsonArray(), excluded = new JsonArray(), offline = new JsonArray(), topics = new JsonArray();
         for (TestSuite suite : TestRegistry.getTestSuites(modId)) {
-            if (suite.runsOnClient() != client) continue;
+            if (suite.side() != side) continue;
             String key = suite.getCategory().getName() + "/" + suite.getClass().getSimpleName();
             JsonObject topic = new JsonObject();
             topic.addProperty("key", key);
@@ -335,7 +359,7 @@ public final class AutoTest {
             topics.add(topic);
             if (TestRegistry.isExcluded(suite)) excluded.add(key);
             else if (TestRegistry.isOffline(suite)) offline.add(key);
-            else if (!client && !suite.getCategory().canRunOn(isSlave)) skipped.add(key);
+            else if (side != TestSuite.Side.CLIENT && !suite.getCategory().canRunOn(isSlave)) skipped.add(key);
         }
         mod.addProperty("passed", counts[0]);
         mod.addProperty("failed", counts[1]);

@@ -22,7 +22,7 @@ import java.util.function.Predicate;
 import java.util.function.Supplier;
 
 /**
- * GUI driver for client test suites ({@link net.kroia.testkit.TestSuite#runsOnClient()}). Call it from the test
+ * GUI driver for client test suites ({@link net.kroia.testkit.TestSuite.Side#CLIENT}). Call it from the test
  * thread, never from the client thread: every action hops to the client thread and waits for it, and waits are
  * counted in client ticks (never milliseconds), so the game keeps rendering while a test waits.
  * <pre>{@code

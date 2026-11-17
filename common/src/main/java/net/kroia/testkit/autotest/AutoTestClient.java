@@ -167,7 +167,7 @@ final class AutoTestClient {
         Thread thread = new Thread(() -> {
             JsonObject report = AutoTest.header("completed");
             report.addProperty("side", "client");
-            AutoTest.runSuites(report, true, false, null, null);
+            AutoTest.runSuites(report, net.kroia.testkit.TestSuite.Side.CLIENT, false, null, null);
             AutoTest.write(AutoTest.GUI_RESULTS, report);
             AutoTest.guiDone = true;
             TestKitMod.LOGGER.info("[AutoTest] client: GUI report written to {}", AutoTest.GUI_RESULTS);
