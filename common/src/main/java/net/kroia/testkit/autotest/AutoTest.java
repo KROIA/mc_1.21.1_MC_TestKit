@@ -89,6 +89,8 @@ public final class AutoTest {
     private static final @Nullable String WAIT_GUI = System.getProperty(P + ".waitGui");
     static final Path GUI_RESULTS = RESULTS.resolveSibling(RESULTS.getFileName() + ".gui.json");
     static final Path SCENARIO_RESULTS = RESULTS.resolveSibling(RESULTS.getFileName() + ".scenario.json");
+    /** Written after the server suites (always, before any scenario): run_matrix may start the next server now. */
+    static final Path SERVER_DONE = RESULTS.resolveSibling(RESULTS.getFileName() + ".server.done");
     /** Set by the client when its GUI suites are done (or there are none); read by an integrated server. */
     static volatile boolean guiDone;
     /** Ticks every readiness condition must hold before the run starts (lets joins and syncs settle). */
@@ -260,6 +262,7 @@ public final class AutoTest {
         ServerPlayer player = players.isEmpty() ? null : players.get(0);
         JsonObject report = header("completed");
         runSuites(report, TestSuite.Side.SERVER, isSlave, server, player);
+        write(SERVER_DONE, report);
         if (!hasSuites(TestSuite.Side.SCENARIO)) {
             finish(server, report);
             return;
