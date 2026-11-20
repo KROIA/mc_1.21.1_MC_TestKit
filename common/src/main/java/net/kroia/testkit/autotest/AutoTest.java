@@ -50,7 +50,9 @@ import java.util.function.Supplier;
  *       {@code <results>.client.json} next to it</li>
  *   <li>{@code waitPlayer} wait for a player to join before running (default true)</li>
  *   <li>{@code waitSlaves}, {@code waitLink}, {@code trustedSlave}: read by the mods' own ready conditions, not here</li>
- *   <li>{@code after} wait until this file exists (sequencing between instances)</li>
+ *   <li>{@code after} wait until this file exists (sequencing between instances); on a client the GUI tests wait
+ *       for it too, e.g. for the master's {@code <results>.server.done}: client-to-master requests time out while
+ *       the master runs its server suites on its server thread</li>
  *   <li>{@code masterDown} the slave-masterdown cell: the master was killed before the tests, see {@link #isMasterDown()}</li>
  *   <li>{@code stop} dedicated server: stop after the report is written (default true)</li>
  *   <li>{@code timeout} watchdog in seconds; on expiry a timeout report is written and the JVM halts (default 900)</li>
@@ -79,7 +81,7 @@ public final class AutoTest {
     static final String LABEL = System.getProperty(P);
     static final Path RESULTS = Paths.get(System.getProperty(P + ".results", "autotest-results.json")).toAbsolutePath();
     private static final boolean WAIT_PLAYER = Boolean.parseBoolean(System.getProperty(P + ".waitPlayer", "true"));
-    private static final @Nullable String AFTER = System.getProperty(P + ".after");
+    static final @Nullable String AFTER = System.getProperty(P + ".after");
     private static final String WAITING_AFTER = "file " + AFTER;
     private static final boolean MASTER_DOWN = Boolean.getBoolean(P + ".masterDown");
     private static final boolean STOP = Boolean.parseBoolean(System.getProperty(P + ".stop", "true"));

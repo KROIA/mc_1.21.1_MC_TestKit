@@ -27,7 +27,9 @@ import net.minecraft.world.level.levelgen.WorldOptions;
 import net.minecraft.world.level.levelgen.presets.WorldPresets;
 
 import java.lang.reflect.Field;
+import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.List;
 
 /**
@@ -58,6 +60,7 @@ final class AutoTestClient {
     private static boolean done;
     private static volatile boolean chatOpened;
     private static boolean guiStarted;
+    private static boolean waitLogged;
     private static int joinedTicks;
     /** Ticks after joining before the GUI tests start (lets the join, syncs and the chat screen settle). */
     private static final int GUI_SETTLE_TICKS = 40;
@@ -100,7 +103,8 @@ final class AutoTestClient {
             done = chatOpened; // manual play: no quit logic
             return;
         }
-        if (joined && chatOpened && !guiStarted && mc.level != null && ++joinedTicks >= GUI_SETTLE_TICKS) startGuiTests();
+        if (joined && chatOpened && !guiStarted && mc.level != null && ++joinedTicks >= GUI_SETTLE_TICKS && afterReady())
+            startGuiTests();
         if (AutoTest.isFinished()) {
             finish(mc, "tests_finished");
         } else if (joined && mc.level == null && !mc.isLocalServer()) {
@@ -155,6 +159,14 @@ final class AutoTestClient {
             TestKitMod.LOGGER.error("[AutoTest] client: cannot answer the world prompt", e);
             finish(mc, "world_prompt_failed");
         }
+    }
+
+    /** @return true once the {@code after} file exists (or none is set); logs the wait once. */
+    private static boolean afterReady() {
+        if (AutoTest.AFTER == null || Files.exists(Paths.get(AutoTest.AFTER))) return true;
+        if (!waitLogged) TestKitMod.LOGGER.info("[AutoTest] client: GUI tests wait for file {}", AutoTest.AFTER);
+        waitLogged = true;
+        return false;
     }
 
     /**
