@@ -5,6 +5,7 @@ import it.unimi.dsi.fastutil.booleans.BooleanConsumer;
 import dev.architectury.event.events.client.ClientLifecycleEvent;
 import dev.architectury.event.events.client.ClientTickEvent;
 import net.kroia.testkit.TestKitMod;
+import net.kroia.testkit.TestSuite;
 import net.kroia.testkit.compat.ClientCompat;
 import net.kroia.testkit.gui.Gui;
 import net.minecraft.client.Minecraft;
@@ -61,6 +62,10 @@ final class AutoTestClient {
     private static volatile boolean chatOpened;
     private static boolean guiStarted;
     private static boolean waitLogged;
+    /** Set while the client's scenario steps run (TK-7). */
+    private static volatile boolean scenariosRunning;
+    /** False for the 2nd..nth client of a setup: GUI suites run on one client only. */
+    private static final boolean GUI = Boolean.parseBoolean(System.getProperty(AutoTest.P + ".gui", "true"));
     private static int joinedTicks;
     /** Ticks after joining before the GUI tests start (lets the join, syncs and the chat screen settle). */
     private static final int GUI_SETTLE_TICKS = 40;
@@ -105,7 +110,9 @@ final class AutoTestClient {
         }
         if (joined && chatOpened && !guiStarted && mc.level != null && ++joinedTicks >= GUI_SETTLE_TICKS && afterReady())
             startGuiTests();
-        if (AutoTest.isFinished()) {
+        if (scenariosRunning) {
+            // the client's scenario steps are still running (they time out on their own): no quitting yet
+        } else if (AutoTest.isFinished()) {
             finish(mc, "tests_finished");
         } else if (joined && mc.level == null && !mc.isLocalServer()) {
             // A dedicated server under autotest stops itself after its run, which drops us here.
@@ -171,18 +178,36 @@ final class AutoTestClient {
 
     /**
      * Runs the GUI suites on their own thread (they block while waiting for ticks; the client thread must keep
-     * running) and writes {@code <results>.gui.json}, also when there are none, so a dedicated server that waits
-     * for the file ({@code waitGui}) can start. Then reopens the chat screen.
+     * running) and writes {@code <results>.gui.json}, also when there are none or {@code gui=false}, so a dedicated
+     * server that waits for the file ({@code waitGui}) can start. Then this client's scenario steps
+     * ({@code <results>.client-scenario.json}), then it reopens the chat screen.
      */
     private static void startGuiTests() {
         guiStarted = true;
+        boolean scenarios = AutoTest.hasSuites(TestSuite.Side.CLIENT_SCENARIO);
+        scenariosRunning = scenarios; // set before the thread starts: the tick must not quit in between
         Thread thread = new Thread(() -> {
             JsonObject report = AutoTest.header("completed");
             report.addProperty("side", "client");
-            AutoTest.runSuites(report, net.kroia.testkit.TestSuite.Side.CLIENT, false, null, null);
+            if (GUI) {
+                AutoTest.runSuites(report, TestSuite.Side.CLIENT, false, null, null);
+            } else {
+                TestKitMod.LOGGER.info("[AutoTest] client: GUI suites off (gui=false)");
+                report.add("mods", new JsonObject());
+                for (String total : new String[]{"passed", "failed", "errors", "skipped", "excludedSuites"})
+                    report.addProperty(total, 0);
+            }
             AutoTest.write(AutoTest.GUI_RESULTS, report);
             AutoTest.guiDone = true;
             TestKitMod.LOGGER.info("[AutoTest] client: GUI report written to {}", AutoTest.GUI_RESULTS);
+            if (scenarios) {
+                JsonObject steps = AutoTest.header("completed");
+                steps.addProperty("side", "client");
+                AutoTest.runSuites(steps, TestSuite.Side.CLIENT_SCENARIO, false, null, null);
+                AutoTest.write(AutoTest.CLIENT_SCENARIO_RESULTS, steps);
+                TestKitMod.LOGGER.info("[AutoTest] client: scenario report written to {}", AutoTest.CLIENT_SCENARIO_RESULTS);
+                scenariosRunning = false;
+            }
             chatOpened = false; // the tick reopens it once no test screen is open
         }, "TestKit-GUI-Tests");
         thread.setDaemon(true);

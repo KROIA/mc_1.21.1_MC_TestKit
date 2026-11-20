@@ -38,6 +38,10 @@ import java.util.function.Supplier;
  * {@code -Dmodutilities.autotest.scenarioDir=<dir>} (fresh per setup) and
  * {@code -Dmodutilities.autotest.instances=<label,label,...>} (every server in the setup).
  * Without them, or when a step names an instance the setup does not have, the scenario is skipped.
+ * <p>
+ * Game clients take part too (TK-7): a step may name a client label (tester1, tester2, ...); each client runs the same
+ * scenario from a {@link net.kroia.testkit.TestSuite.Side#CLIENT_SCENARIO} suite with {@link #runOnClient}, after its
+ * GUI suites. Its steps run on the client's test thread (not the server thread).
  */
 public final class Scenario {
     public static final String DIR_PROPERTY = "modutilities.autotest.scenarioDir";
@@ -79,6 +83,19 @@ public final class Scenario {
             return TestResult.skip(testName, "needs " + DIR_PROPERTY + " and " + INSTANCES_PROPERTY + " (run_matrix sets them)");
         return run(testName, AutoTest.label(), Paths.get(dir), Set.of(instances.split(",")), server::getTickCount,
                 action -> onServer(server, action));
+    }
+
+    /**
+     * The game client's entry point (a {@link net.kroia.testkit.TestSuite.Side#CLIENT_SCENARIO} suite): runs the steps
+     * whose instance is this client's label (e.g. tester1) on the calling test thread, so they drive the GUI with
+     * {@link net.kroia.testkit.gui.Gui}, and counts waits in client ticks.
+     */
+    public TestResult runOnClient(String testName) {
+        String dir = System.getProperty(DIR_PROPERTY), instances = System.getProperty(INSTANCES_PROPERTY);
+        if (dir == null || instances == null)
+            return TestResult.skip(testName, "needs " + DIR_PROPERTY + " and " + INSTANCES_PROPERTY + " (run_matrix sets them)");
+        return run(testName, AutoTest.label(), Paths.get(dir), Set.of(instances.split(",")),
+                net.kroia.testkit.gui.Gui::ticks, Supplier::get);
     }
 
     TestResult run(String testName, String me, Path dir, Set<String> instances, LongSupplier ticks,

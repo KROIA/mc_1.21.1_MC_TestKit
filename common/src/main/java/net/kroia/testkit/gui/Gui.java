@@ -51,6 +51,11 @@ public final class Gui {
         TICKS.incrementAndGet();
     }
 
+    /** @return client ticks since start (the clock of {@link #waitTicks}). */
+    public static long ticks() {
+        return TICKS.get();
+    }
+
     /** Register from the mod's client dev init. */
     public static void addLocator(GuiLocator locator) {
         LOCATORS.add(locator);

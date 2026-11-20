@@ -70,7 +70,12 @@ public class TestRunner {
     }
 
     private static String suffix(TestSuite.Side side, String client, String scenario) {
-        return side == TestSuite.Side.CLIENT ? client : side == TestSuite.Side.SCENARIO ? scenario : "";
+        return switch (side) {
+            case SERVER -> "";
+            case CLIENT -> client;
+            case SCENARIO -> scenario;
+            case CLIENT_SCENARIO -> client + scenario;
+        };
     }
 
     /** @return per-suite results of every suite this runner has run so far. */
@@ -102,7 +107,7 @@ public class TestRunner {
                 log.append("OFFLINE ").append(TestRegistry.topicKey(suite)).append('\n');
                 continue;
             }
-            if (side != TestSuite.Side.CLIENT && !category.canRunOn(isSlave)) {
+            if (!side.onClient() && !category.canRunOn(isSlave)) {
                 totalSkipped += suite.getTestCount();
                 continue;
             }

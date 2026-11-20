@@ -59,6 +59,8 @@ import java.util.function.Supplier;
  *   <li>{@code mods} comma separated mod ids to run (default: all mods with registered suites)</li>
  *   <li>{@code connect} / {@code world} client only, see {@link AutoTestClient}</li>
  *   <li>{@code waitGui} dedicated server: wait until this file exists (the client's GUI report, see below)</li>
+ *   <li>{@code gui} client only: false skips the GUI suites (an empty GUI report is still written), for the 2nd..nth
+ *       client of a several-clients setup (default true)</li>
  *   <li>{@code play} manual play (run_matrix.py --play): only the multi-server link and the client's
  *       connect/world are set up; no tests, no report, no auto-stop, no watchdog</li>
  * </ul>
@@ -68,7 +70,9 @@ import java.util.function.Supplier;
  * <p>
  * GUI tests ({@link TestSuite.Side#CLIENT}) run on the client after it joined, before the server's suites;
  * the client writes them to {@code <results>.gui.json} (same format as the server report). An integrated server
- * waits for them by itself; a dedicated server waits for the file named by {@code waitGui}.
+ * waits for them by itself; a dedicated server waits for the file named by {@code waitGui}. After them the client runs
+ * its {@link TestSuite.Side#CLIENT_SCENARIO} suites (its steps of the setup's scenarios) and writes
+ * {@code <results>.client-scenario.json}; it stays until they are done, even when its server stopped.
  * <p>
  * Mod-specific setup stays in the mods (TestKit depends on none of them): they register
  * {@link #addReadyCondition ready conditions} (e.g. ModUtilities waits for the master/slave link),
@@ -91,6 +95,8 @@ public final class AutoTest {
     private static final @Nullable String WAIT_GUI = System.getProperty(P + ".waitGui");
     static final Path GUI_RESULTS = RESULTS.resolveSibling(RESULTS.getFileName() + ".gui.json");
     static final Path SCENARIO_RESULTS = RESULTS.resolveSibling(RESULTS.getFileName() + ".scenario.json");
+    /** The client's scenario steps (TK-7); its own file, since singleplayer shares RESULTS with the integrated server. */
+    static final Path CLIENT_SCENARIO_RESULTS = RESULTS.resolveSibling(RESULTS.getFileName() + ".client-scenario.json");
     /** Written after the server suites (always, before any scenario): run_matrix may start the next server now. */
     static final Path SERVER_DONE = RESULTS.resolveSibling(RESULTS.getFileName() + ".server.done");
     /** Set by the client when its GUI suites are done (or there are none); read by an integrated server. */
@@ -364,7 +370,7 @@ public final class AutoTest {
             topics.add(topic);
             if (TestRegistry.isExcluded(suite)) excluded.add(key);
             else if (TestRegistry.isOffline(suite)) offline.add(key);
-            else if (side != TestSuite.Side.CLIENT && !suite.getCategory().canRunOn(isSlave)) skipped.add(key);
+            else if (!side.onClient() && !suite.getCategory().canRunOn(isSlave)) skipped.add(key);
         }
         mod.addProperty("passed", counts[0]);
         mod.addProperty("failed", counts[1]);

@@ -49,7 +49,20 @@ public abstract class TestSuite {
          * thread, after the server suites, so the server keeps ticking while a test waits. Touch the server only
          * through those helpers or {@link net.kroia.testkit.scenario.Scenario#onServer}.
          */
-        SCENARIO
+        SCENARIO,
+        /**
+         * The game client's part of a {@link net.kroia.testkit.scenario.Scenario} (several real clients, TK-7). Runs on
+         * the client's test thread after its GUI suites; call {@link net.kroia.testkit.scenario.Scenario#runOnClient}.
+         * {@link #getServer()} is null. Register such suites only on the client, like {@link #CLIENT}. Build the
+         * scenario in shared code so servers and clients get the same step list, and keep the client steps' bodies in a
+         * client-only class: a dedicated server then never loads GUI classes.
+         */
+        CLIENT_SCENARIO;
+
+        /** @return true for the sides that run on the game client (no server category check). */
+        public boolean onClient() {
+            return this == CLIENT || this == CLIENT_SCENARIO;
+        }
     }
 
     public Side side() {
