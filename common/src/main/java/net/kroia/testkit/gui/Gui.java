@@ -162,11 +162,15 @@ public final class Gui {
         return onClient(Gui::collect);
     }
 
-    /** @return the first element (depth first) whose name or text equals {@code nameOrText}; throws if none. */
+    /**
+     * @return the first visible element (depth first) whose name or text equals {@code nameOrText}, else the first
+     * hidden one; throws if none.
+     */
     public static GuiNode find(String nameOrText) {
         return find(n -> nameOrText.equals(n.name()) || nameOrText.equals(n.text()), "'" + nameOrText + "'");
     }
 
+    /** @return the first visible match (depth first), else the first hidden one; throws if none. */
     public static GuiNode find(Predicate<GuiNode> filter, String description) {
         List<GuiNode> found = findAll(filter);
         if (found.isEmpty()) {
@@ -174,9 +178,10 @@ public final class Gui {
             nodes().forEach(root -> root.forEach(n -> all.add(n.toString())));
             throw new IllegalStateException("no element " + description + " on " + describe(screen()) + "; elements: " + all);
         }
-        return found.get(0);
+        return found.stream().filter(GuiNode::visible).findFirst().orElse(found.get(0));
     }
 
+    /** All matches, hidden ones included (for tests that assert an element is hidden). */
     public static List<GuiNode> findAll(Predicate<GuiNode> filter) {
         List<GuiNode> found = new ArrayList<>();
         nodes().forEach(root -> root.forEach(n -> {
@@ -217,8 +222,16 @@ public final class Gui {
         click(find(nameOrText));
     }
 
+    /** Clicks the element's center; throws if it is hidden, because the click would land on whatever is below. */
     public static void click(GuiNode node) {
+        requireVisible(node, "click");
         click(node.centerX(), node.centerY(), Keys.MOUSE_LEFT);
+    }
+
+    private static void requireVisible(GuiNode node, String action) {
+        if (!node.visible())
+            throw new IllegalStateException("cannot " + action + " " + node + ": it is hidden (it or a parent is not"
+                    + " visible); GUI tests act only on visible elements");
     }
 
     /** Press and release at a point; then waits one tick. */
@@ -234,6 +247,7 @@ public final class Gui {
 
     /** Two clicks within one tick; from 1.21.9 the second one carries the double-click flag. */
     public static void doubleClick(GuiNode node) {
+        requireVisible(node, "double-click");
         double x = node.centerX(), y = node.centerY();
         onClient(() -> {
             Screen s = requireScreen();
@@ -269,6 +283,7 @@ public final class Gui {
 
     /** Mouse wheel over the element; positive = up (zoom in on a ChartView). */
     public static void scroll(GuiNode node, double amount) {
+        requireVisible(node, "scroll");
         onClient(() -> {
             Screen s = requireScreen();
             s.mouseMoved(node.centerX(), node.centerY());

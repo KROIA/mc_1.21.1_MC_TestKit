@@ -13,6 +13,7 @@ import java.util.function.Consumer;
  * @param text      the text the element draws ("" if none)
  * @param name      a stable test name, if the element has one
  * @param textWidth width of {@code text} in GUI pixels with the game font (0 if no text)
+ * @param visible   false if the element or one of its parents is hidden; {@link Gui#click} refuses hidden nodes
  * @param handle    the element object itself, for checks on its state (an EditBox's value, a slider's value).
  *                  The node is a snapshot taken on the client thread; read the live handle only inside
  *                  {@link Gui#onClient}, e.g. {@code Gui.onClient(() -> ((EditBox) node.handle()).getValue())}.
