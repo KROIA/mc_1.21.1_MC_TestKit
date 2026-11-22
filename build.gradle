@@ -43,14 +43,14 @@ subprojects {
 
         //mappings loom.officialMojangMappings() // mc>=1.21.2 mc<=1.21.2 (no parchment release for 1.21.2)
 
-        mappings loom.layered() { // mc<=1.21.1
-            officialMojangMappings() // mc<=1.21.1
-            parchment("org.parchmentmc.data:parchment-${rootProject.minecraft_version}:${rootProject.mapping_version}") // mc<=1.21.1
-        } // mc<=1.21.1
-        //mappings loom.layered() { // mc>=1.21.3 mc<=1.21.11
-        //    officialMojangMappings() // mc>=1.21.3 mc<=1.21.11
-        //    parchment("org.parchmentmc.data:parchment-${rootProject.minecraft_version}:${rootProject.mapping_version}") // mc>=1.21.3 mc<=1.21.11
-        //} // mc>=1.21.3 mc<=1.21.11
+        //mappings loom.layered() { // mc<=1.21.1
+            //officialMojangMappings() // mc<=1.21.1
+            //parchment("org.parchmentmc.data:parchment-${rootProject.minecraft_version}:${rootProject.mapping_version}") // mc<=1.21.1
+        //} // mc<=1.21.1
+        mappings loom.layered() { // mc>=1.21.3 mc<=1.21.11
+            officialMojangMappings() // mc>=1.21.3 mc<=1.21.11
+            parchment("org.parchmentmc.data:parchment-${rootProject.minecraft_version}:${rootProject.mapping_version}") // mc>=1.21.3 mc<=1.21.11
+        } // mc>=1.21.3 mc<=1.21.11
         // mc 26.1+: no mappings; Minecraft ships unobfuscated with official names.
     }
 
