@@ -53,6 +53,7 @@ public final class InputCompat {
     public static void setGuiScale(int scale) {
         Minecraft mc = Minecraft.getInstance();
         mc.options.guiScale().set(scale);
-        mc.resizeDisplay(); // mc<=26.2 (26.3: resizeDisplay is gone, find its replacement when porting)
+        mc.resizeDisplay(); // mc<=1.21.11
+        //mc.resizeGui(); // mc>=26.1
     }
 }
