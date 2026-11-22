@@ -1,7 +1,7 @@
 plugins {
-    id 'dev.architectury.loom' version '1.7-SNAPSHOT' apply false // mc<=1.21.4
+    //id 'dev.architectury.loom' version '1.7-SNAPSHOT' apply false // mc<=1.21.4
     //id 'dev.architectury.loom' version '1.10-SNAPSHOT' apply false // mc>=1.21.5 mc<=1.21.8 (1.21.5 dependencies are built with Loom 1.10)
-    //id 'dev.architectury.loom' version '1.11-SNAPSHOT' apply false // mc>=1.21.9 mc<=1.21.9 (1.21.9 dependencies are built with Loom 1.11)
+    id 'dev.architectury.loom' version '1.11-SNAPSHOT' apply false // mc>=1.21.9 mc<=1.21.9 (1.21.9 dependencies are built with Loom 1.11)
     //id 'dev.architectury.loom' version '1.14-SNAPSHOT' apply false // mc>=1.21.10 mc<=1.21.11 (JEI and NeoForge 21.10.57+ for 1.21.10 need Loom 1.13+)
     //id 'dev.architectury.loom-no-remap' version '1.17-SNAPSHOT' apply false // mc>=26.1 (Minecraft 26.1 ships unobfuscated; needs Gradle 9)
     id 'architectury-plugin' version '3.4-SNAPSHOT' // mc<=1.21.11
@@ -43,14 +43,14 @@ subprojects {
 
         //mappings loom.officialMojangMappings() // mc>=1.21.2 mc<=1.21.2 (no parchment release for 1.21.2)
 
-        mappings loom.layered() { // mc<=1.21.1
-            officialMojangMappings() // mc<=1.21.1
-            parchment("org.parchmentmc.data:parchment-${rootProject.minecraft_version}:${rootProject.mapping_version}") // mc<=1.21.1
-        } // mc<=1.21.1
-        //mappings loom.layered() { // mc>=1.21.3 mc<=1.21.11
-        //    officialMojangMappings() // mc>=1.21.3 mc<=1.21.11
-        //    parchment("org.parchmentmc.data:parchment-${rootProject.minecraft_version}:${rootProject.mapping_version}") // mc>=1.21.3 mc<=1.21.11
-        //} // mc>=1.21.3 mc<=1.21.11
+        //mappings loom.layered() { // mc<=1.21.1
+            //officialMojangMappings() // mc<=1.21.1
+            //parchment("org.parchmentmc.data:parchment-${rootProject.minecraft_version}:${rootProject.mapping_version}") // mc<=1.21.1
+        //} // mc<=1.21.1
+        mappings loom.layered() { // mc>=1.21.3 mc<=1.21.11
+            officialMojangMappings() // mc>=1.21.3 mc<=1.21.11
+            parchment("org.parchmentmc.data:parchment-${rootProject.minecraft_version}:${rootProject.mapping_version}") // mc>=1.21.3 mc<=1.21.11
+        } // mc>=1.21.3 mc<=1.21.11
         // mc 26.1+: no mappings; Minecraft ships unobfuscated with official names.
     }
 
