@@ -24,8 +24,8 @@ public final class ClientCompat {
 
     /** Reads the main render target (the last finished frame) and hands the image to {@code done}, which closes it. */
     public static void captureFrame(java.util.function.Consumer<com.mojang.blaze3d.platform.NativeImage> done) {
-        done.accept(net.minecraft.client.Screenshot.takeScreenshot(mainRenderTarget())); // mc<=1.21.4
-        //net.minecraft.client.Screenshot.takeScreenshot(mainRenderTarget(), done); // mc>=1.21.5 (asynchronous: the GPU read finishes later)
+        //done.accept(net.minecraft.client.Screenshot.takeScreenshot(mainRenderTarget())); // mc<=1.21.4
+        net.minecraft.client.Screenshot.takeScreenshot(mainRenderTarget(), done); // mc>=1.21.5 (asynchronous: the GPU read finishes later)
     }
 
     public static boolean isHudHidden() {
