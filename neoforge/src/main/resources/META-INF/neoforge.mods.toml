@@ -14,7 +14,7 @@ Dev-only in-game test framework for Kroia's mods. Never released.
 [[dependencies.testkit]]
 modId = "neoforge"
 type = "required"
-versionRange = "[21.1,)"
+versionRange = "[21.3,)"
 ordering = "NONE"
 side = "BOTH"
 
@@ -28,6 +28,6 @@ side = "BOTH"
 [[dependencies.testkit]]
 modId = "architectury"
 type = "required"
-versionRange = "[13.0.8,)"
+versionRange = "[14.0.4,)"
 ordering = "AFTER"
 side = "BOTH"
