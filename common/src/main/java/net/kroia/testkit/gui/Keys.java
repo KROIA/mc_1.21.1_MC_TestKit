@@ -30,10 +30,10 @@ public final class Keys {
     public static final int X = com.mojang.blaze3d.platform.InputConstants.KEY_X;
 
     public static final int MOD_NONE = 0;
-    public static final int MOD_SHIFT   = 1; // mc<=26.2
-    public static final int MOD_CONTROL = 2; // mc<=26.2
-    public static final int MOD_ALT     = 4; // mc<=26.2
-    //public static final int MOD_SHIFT   = com.mojang.blaze3d.platform.InputConstants.MOD_SHIFT; // mc>=26.3
-    //public static final int MOD_CONTROL = com.mojang.blaze3d.platform.InputConstants.MOD_CONTROL; // mc>=26.3
-    //public static final int MOD_ALT     = com.mojang.blaze3d.platform.InputConstants.MOD_ALT; // mc>=26.3
+    //public static final int MOD_SHIFT   = 1; // mc<=26.2
+    //public static final int MOD_CONTROL = 2; // mc<=26.2
+    //public static final int MOD_ALT     = 4; // mc<=26.2
+    public static final int MOD_SHIFT   = com.mojang.blaze3d.platform.InputConstants.MOD_SHIFT; // mc>=26.3
+    public static final int MOD_CONTROL = com.mojang.blaze3d.platform.InputConstants.MOD_CONTROL; // mc>=26.3
+    public static final int MOD_ALT     = com.mojang.blaze3d.platform.InputConstants.MOD_ALT; // mc>=26.3
 }
