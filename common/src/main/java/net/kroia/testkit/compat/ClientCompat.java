@@ -28,6 +28,12 @@ public final class ClientCompat {
         net.minecraft.client.Screenshot.takeScreenshot(mainRenderTarget(), done); // mc>=1.21.5 (asynchronous: the GPU read finishes later)
     }
 
+    /** Time of day of the client world, as {@code /time set} sets it. */
+    public static long dayTime(net.minecraft.client.multiplayer.ClientLevel level) {
+        return level.getDayTime(); // mc<=1.21.11
+        //return level.getOverworldClockTime(); // mc>=26.1 (world clocks replaced the day time)
+    }
+
     public static boolean isHudHidden() {
         return Minecraft.getInstance().options.hideGui; // mc<=26.1
         //return Minecraft.getInstance().gui.hud.isHidden(); // mc>=26.2
