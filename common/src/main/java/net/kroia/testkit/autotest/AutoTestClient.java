@@ -135,8 +135,8 @@ final class AutoTestClient {
     private static void openChat(Minecraft mc) {
         if (mc.player == null || ClientCompat.screen() != null) return;
         chatOpened = true;
-        ClientCompat.setScreen(new ChatScreen("")); // mc<=1.21.8
-        //ClientCompat.setScreen(new ChatScreen("", false)); // mc>=1.21.9
+        //ClientCompat.setScreen(new ChatScreen("")); // mc<=1.21.8
+        ClientCompat.setScreen(new ChatScreen("", false)); // mc>=1.21.9
         TestKitMod.LOGGER.info("[AutoTest] client: opened chat to release the mouse");
     }
 
