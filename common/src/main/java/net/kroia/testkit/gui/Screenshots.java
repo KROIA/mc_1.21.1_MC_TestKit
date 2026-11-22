@@ -56,7 +56,7 @@ public final class Screenshots {
         long[] world = Gui.onClient(() -> {
             var level = Minecraft.getInstance().level;
             if (level == null) throw new IllegalStateException("no world: screenshots need a joined world");
-            return new long[]{level.getDayTime(), level.getGameTime(), level.isThundering() ? 2 : level.isRaining() ? 1 : 0};
+            return new long[]{ClientCompat.dayTime(level), level.getGameTime(), level.isThundering() ? 2 : level.isRaining() ? 1 : 0};
         });
         int[] old = Gui.onClient(() -> {
             var w = Minecraft.getInstance().getWindow();
