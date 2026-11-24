@@ -367,6 +367,7 @@ public final class AutoTest {
             JsonObject topic = new JsonObject();
             topic.addProperty("key", key);
             topic.addProperty("needsGame", suite.needsGame());
+            if (suite.onDemand()) topic.addProperty("onDemand", true);
             topics.add(topic);
             if (TestRegistry.isExcluded(suite)) excluded.add(key);
             else if (TestRegistry.isOffline(suite)) offline.add(key);
