@@ -90,12 +90,20 @@ public class TestRegistry {
     }
 
     public static boolean isExcluded(TestSuite suite) {
-        return isExcluded(topicKey(suite), System.getProperty(INCLUDE_PROPERTY), System.getProperty(EXCLUDE_PROPERTY));
+        return isExcluded(topicKey(suite), suite.onDemand(), System.getProperty(INCLUDE_PROPERTY), System.getProperty(EXCLUDE_PROPERTY));
     }
 
     /** @param include, exclude comma separated patterns or null; a blank include means "everything". */
     public static boolean isExcluded(String key, String include, String exclude) {
         return (include != null && !include.isBlank() && !matches(key, include)) || (exclude != null && matches(key, exclude));
+    }
+
+    /** As above; an {@link TestSuite#onDemand() on-demand} suite also needs an include pattern of two or more segments. */
+    public static boolean isExcluded(String key, boolean onDemand, String include, String exclude) {
+        if (onDemand && (include == null || !matches(key, String.join(",",
+                java.util.Arrays.stream(include.split(",")).filter(p -> p.trim().split("/").length >= 2).toList()))))
+            return true;
+        return isExcluded(key, include, exclude);
     }
 
     /** @return true if this suite is listed in {@link #OFFLINE_PROPERTY} and can run without the game. */
