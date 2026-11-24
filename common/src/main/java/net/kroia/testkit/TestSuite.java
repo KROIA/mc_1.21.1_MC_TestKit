@@ -32,6 +32,15 @@ public abstract class TestSuite {
         return true;
     }
 
+    /**
+     * True: the suite runs only when a test selection names it, by category or suite ({@code --only <modid>/<Category>}
+     * or deeper; {@code --only <modid>} is not enough). Normal runs report it as excluded. For long or
+     * window-changing suites such as the docs shots.
+     */
+    public boolean onDemand() {
+        return false;
+    }
+
     /** Where and on which thread a suite runs. */
     public enum Side {
         /** On the server thread, with the other server suites (the default). */
