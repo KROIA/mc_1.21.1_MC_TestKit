@@ -35,20 +35,33 @@ import java.util.function.Supplier;
  * Threading: every method that reads or changes screen state runs on the client thread ({@link #onClient}: submit
  * and wait); only the waiting happens on the test thread. Element lists are snapshots taken on the client thread.
  * Screens and element handles a test holds must be touched only inside {@link #onClient}.
- * Coordinates are GUI-scaled. The OS cursor is never moved; hover effects that read the real cursor position
- * (tooltips) are not driven.
+ * Coordinates are GUI-scaled. The OS cursor is never moved. Clicks send events straight to the screen; the mouse
+ * position screens render with (hover highlights, tooltips) follows only {@link #hover} and, while
+ * {@link Screenshots#record} runs, every pointer move, so the recording shows the hover state under its drawn pointer.
  */
 public final class Gui {
     private Gui() {}
 
     /** Client-thread hops and tick waits give up after this; a frozen client fails the test instead of hanging. */
     private static final long HOP_TIMEOUT_SECONDS = 60;
+    /** While recording, the pointer glides to a new target over this many ticks instead of jumping. */
+    private static final int GLIDE_TICKS = 6;
     private static final List<GuiLocator> LOCATORS = new ArrayList<>();
     private static final AtomicLong TICKS = new AtomicLong();
+    /** Where the driver's pointer is (GUI-scaled x, y), null before the first move; drawn into recordings. */
+    private static volatile @Nullable double[] pointer;
 
     /** Called from the autotest client's tick (client thread). */
     public static void onClientTick() {
         TICKS.incrementAndGet();
+        Screenshots.onClientTick();
+    }
+
+    /** Client thread: the pointer as a fraction of the screen size, null without a screen or before the first move. */
+    static @Nullable double[] pointerFraction() {
+        double[] p = pointer;
+        Screen s = ClientCompat.screen();
+        return p == null || s == null || s.width == 0 || s.height == 0 ? null : new double[]{p[0] / s.width, p[1] / s.height};
     }
 
     /** @return client ticks since start (the clock of {@link #waitTicks}). */
@@ -239,11 +252,48 @@ public final class Gui {
                     + " visible); GUI tests act only on visible elements");
     }
 
+    /**
+     * Moves the pointer to (x, y) and sends the screen a mouse move. While {@link Screenshots#record} runs it glides
+     * there over {@link #GLIDE_TICKS} ticks and the rendered mouse position follows ({@code real} forces that).
+     */
+    private static void moveTo(double x, double y, boolean real) {
+        double[] from = pointer;
+        boolean recording = Screenshots.isRecording();
+        int steps = recording && from != null ? GLIDE_TICKS : 1;
+        for (int i = 1; i <= steps; i++) {
+            double t = (double) i / steps, e = t * t * (3 - 2 * t); // ease in and out
+            double px = steps == 1 ? x : from[0] + (x - from[0]) * e, py = steps == 1 ? y : from[1] + (y - from[1]) * e;
+            onClient(() -> {
+                pointer = new double[]{px, py};
+                Screen s = ClientCompat.screen();
+                if (s != null) s.mouseMoved(px, py);
+                if (real || recording) ClientCompat.setMousePos(px, py);
+            });
+            if (i < steps) waitTicks(1);
+        }
+    }
+
+    /** Moves the mouse onto the element's center without clicking, so its hover state and tooltip render. */
+    public static void hover(GuiNode node) {
+        requireVisible(node, "hover");
+        hover(node.centerX(), node.centerY());
+    }
+
+    /**
+     * Moves the mouse to a GUI-scaled point without clicking (e.g. over an inventory slot for its item tooltip); then
+     * waits two ticks, so a frame with the tooltip is rendered. Off the screen (e.g. -100, -100) removes the hover.
+     * Set the screenshot scene's window size first: a resize lays the screen out again.
+     */
+    public static void hover(double x, double y) {
+        moveTo(x, y, true);
+        waitTicks(2);
+    }
+
     /** Press and release at a point; then waits one tick. */
     public static void click(double x, double y, int button) {
+        moveTo(x, y, false);
         onClient(() -> {
             Screen s = requireScreen();
-            s.mouseMoved(x, y);
             InputCompat.press(s, x, y, button, false);
             InputCompat.release(s, x, y, button);
         });
@@ -254,9 +304,9 @@ public final class Gui {
     public static void doubleClick(GuiNode node) {
         requireVisible(node, "double-click");
         double x = node.centerX(), y = node.centerY();
+        moveTo(x, y, false);
         onClient(() -> {
             Screen s = requireScreen();
-            s.mouseMoved(x, y);
             InputCompat.press(s, x, y, Keys.MOUSE_LEFT, false);
             InputCompat.release(s, x, y, Keys.MOUSE_LEFT);
             InputCompat.press(s, x, y, Keys.MOUSE_LEFT, true);
@@ -267,17 +317,17 @@ public final class Gui {
 
     /** Press at (fromX, fromY), drag in {@code steps} moves (one per tick), release at (toX, toY). For sliders. */
     public static void drag(double fromX, double fromY, double toX, double toY, int steps) {
-        onClient(() -> {
-            Screen s = requireScreen();
-            s.mouseMoved(fromX, fromY);
-            InputCompat.press(s, fromX, fromY, Keys.MOUSE_LEFT, false);
-        });
+        moveTo(fromX, fromY, false);
+        onClient(() -> InputCompat.press(requireScreen(), fromX, fromY, Keys.MOUSE_LEFT, false));
         double dx = (toX - fromX) / steps, dy = (toY - fromY) / steps;
         for (int i = 1; i <= steps; i++) {
             double x = fromX + dx * i, y = fromY + dy * i;
+            boolean recording = Screenshots.isRecording();
             onClient(() -> {
                 Screen s = requireScreen();
+                pointer = new double[]{x, y};
                 s.mouseMoved(x, y);
+                if (recording) ClientCompat.setMousePos(x, y);
                 InputCompat.drag(s, x, y, Keys.MOUSE_LEFT, dx, dy);
             });
             waitTicks(1);
@@ -289,12 +339,35 @@ public final class Gui {
     /** Mouse wheel over the element; positive = up (zoom in on a ChartView). */
     public static void scroll(GuiNode node, double amount) {
         requireVisible(node, "scroll");
-        onClient(() -> {
-            Screen s = requireScreen();
-            s.mouseMoved(node.centerX(), node.centerY());
-            s.mouseScrolled(node.centerX(), node.centerY(), 0, amount);
+        moveTo(node.centerX(), node.centerY(), false);
+        onClient(() -> requireScreen().mouseScrolled(node.centerX(), node.centerY(), 0, amount));
+        waitTicks(1);
+    }
+
+    // ---------------------------------------------------------------- world
+
+    /**
+     * Right-clicks the block under the crosshair with the main-hand item, like the use key does: the item's or block's
+     * use action, and the hand swings when it did something. Close the screen (the autotest chat) and aim first,
+     * e.g. {@code sendCommand("tp @s 11.5 -59 1.5 90 3")} and a few ticks for the move to arrive; switch the held
+     * item with {@code /item replace entity @s weapon.mainhand with <item>}. Then waits one tick.
+     *
+     * @return true if the use did something (consumed the action)
+     */
+    public static boolean useItem() {
+        boolean used = onClient(() -> {
+            Minecraft mc = Minecraft.getInstance();
+            if (mc.player == null || mc.gameMode == null) throw new IllegalStateException("no player: not in a world");
+            if (ClientCompat.screen() != null)
+                throw new IllegalStateException("close the screen first (" + describe(ClientCompat.screen()) + "): a click would go to it");
+            if (!(mc.hitResult instanceof net.minecraft.world.phys.BlockHitResult hit) || hit.getType() != net.minecraft.world.phys.HitResult.Type.BLOCK)
+                throw new IllegalStateException("not looking at a block (within reach): " + (mc.hitResult == null ? "nothing" : mc.hitResult.getType()));
+            boolean consumed = mc.gameMode.useItemOn(mc.player, net.minecraft.world.InteractionHand.MAIN_HAND, hit).consumesAction();
+            if (consumed) ClientCompat.swingMainHand(mc.player);
+            return consumed;
         });
         waitTicks(1);
+        return used;
     }
 
     public static void key(int key) {
