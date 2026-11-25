@@ -8,8 +8,9 @@ import java.util.List;
  * Only visible elements with a size count. Rules:
  * <ul>
  *   <li>{@code OUTSIDE}: a top-level element is not fully inside the screen;</li>
- *   <li>{@code OVERLAP}: two sibling elements overlap (a child inside its parent is fine);</li>
- *   <li>{@code TEXT}: an element's text is wider than the element.</li>
+ *   <li>{@code OVERLAP}: two sibling elements overlap (a child inside its parent is fine; an
+ *       {@link GuiNode#overlay() overlay} may cover its siblings);</li>
+ *   <li>{@code TEXT}: an element's text is wider than the element ({@code textWidth} 0 = not checked).</li>
  * </ul>
  * Children are not checked against the screen: scrolled list content is legitimately outside.
  */
@@ -44,7 +45,7 @@ public final class Layout {
                 problems.add(new Problem(Kind.TEXT, a, null, a + ": text is " + a.textWidth() + " px wide, element " + a.width()));
             for (int j = i + 1; j < siblings.size(); j++) {
                 GuiNode b = siblings.get(j);
-                if (counts(b) && a.x() < b.x() + b.width() && b.x() < a.x() + a.width() && a.y() < b.y() + b.height() && b.y() < a.y() + a.height())
+                if (counts(b) && !a.overlay() && !b.overlay() && a.x() < b.x() + b.width() && b.x() < a.x() + a.width() && a.y() < b.y() + b.height() && b.y() < a.y() + a.height())
                     problems.add(new Problem(Kind.OVERLAP, a, b, a + " overlaps " + b));
             }
             checkSiblings(a.children(), problems);
