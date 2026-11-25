@@ -49,7 +49,11 @@ import java.util.function.Supplier;
  *   <li>{@code results} report path (default {@code autotest-results.json}); the client writes
  *       {@code <results>.client.json} next to it</li>
  *   <li>{@code waitPlayer} wait for a player to join before running (default true)</li>
- *   <li>{@code waitSlaves}, {@code waitLink}, {@code trustedSlave}: read by the mods' own ready conditions, not here</li>
+ *   <li>{@code waitSlaves}, {@code waitLink}: read by the mods' own ready conditions, not here</li>
+ *   <li>{@code trustedSlave} the slave ids the master trusts (read by the mods); set = the cell's slaves are trusted,
+ *       see {@link #serverRole()}</li>
+ *   <li>{@code serverRole} client that joins a dedicated server: that server's role ({@code master}, {@code slave}),
+ *       see {@link #serverRole()}</li>
  *   <li>{@code after} wait until this file exists (sequencing between instances); on a client the GUI tests wait
  *       for it too, e.g. for the master's {@code <results>.server.done}: client-to-master requests time out while
  *       the master runs its server suites on its server thread</li>
@@ -88,6 +92,9 @@ public final class AutoTest {
     static final @Nullable String AFTER = System.getProperty(P + ".after");
     private static final String WAITING_AFTER = "file " + AFTER;
     private static final boolean MASTER_DOWN = Boolean.getBoolean(P + ".masterDown");
+    private static final @Nullable String SERVER_ROLE = System.getProperty(P + ".serverRole");
+    private static final boolean JOINS_DEDICATED = System.getProperty(P + ".connect") != null;
+    private static final boolean TRUSTED_CELL = !System.getProperty(P + ".trustedSlave", "").isEmpty();
     private static final boolean STOP = Boolean.parseBoolean(System.getProperty(P + ".stop", "true"));
     private static final long TIMEOUT_SECONDS = Long.getLong(P + ".timeout", 900L);
     private static final @Nullable String MODS = System.getProperty(P + ".mods");
@@ -127,6 +134,18 @@ public final class AutoTest {
     /** @return true in the slave-masterdown cell (run_matrix.py): the master was killed before this slave's tests. */
     public static boolean isMasterDown() {
         return MASTER_DOWN;
+    }
+
+    /**
+     * The role of the server this test runs against, on the server and on the client, without a request to the
+     * master: this JVM's own server from the {@link #setRoleProvider role provider}, a joined dedicated server from
+     * run_matrix's {@code serverRole} property; slave trust from the cell's {@code trustedSlave} property.
+     * Call it once the run started (the provider reads the live multi-server state).
+     *
+     * @throws IllegalStateException on a client that joined a dedicated server without the {@code serverRole} property
+     */
+    public static ServerRole serverRole() {
+        return ServerRole.resolve(SERVER_ROLE, JOINS_DEDICATED, role, TRUSTED_CELL);
     }
 
     public static boolean isEnabled() {
