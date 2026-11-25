@@ -4,6 +4,7 @@ import net.kroia.testkit.compat.ClientCompat;
 import net.kroia.testkit.compat.InputCompat;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.components.AbstractWidget;
+import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.components.events.ContainerEventHandler;
 import net.minecraft.client.gui.components.events.GuiEventListener;
 import net.minecraft.client.gui.navigation.ScreenRectangle;
@@ -225,7 +226,7 @@ public final class Gui {
             if (l instanceof AbstractWidget w) {
                 String text = w.getMessage().getString();
                 nodes.add(new GuiNode(type, text, null, w.getX(), w.getY(), w.getWidth(), w.getHeight(),
-                        text.isEmpty() ? 0 : font.width(text), w.visible, children, w));
+                        text.isEmpty() || w instanceof EditBox ? 0 : font.width(text), w.visible, children, w));
             } else {
                 ScreenRectangle r = l.getRectangle();
                 nodes.add(new GuiNode(type, "", null, r.left(), r.top(), r.width(), r.height(), 0, true, children, l));
