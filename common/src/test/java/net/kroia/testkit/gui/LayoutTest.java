@@ -29,5 +29,9 @@ class LayoutTest {
         // invisible and zero-size elements do not count
         GuiNode hidden = new GuiNode("Button", "x", null, 0, 0, 500, 500, 900, false, List.of(), null);
         assertEquals(List.of(), kinds(List.of(hidden, node("a", 0, 0, 0, 20, 99))));
+        // an overlay may cover its siblings, but still counts for OUTSIDE, TEXT and among its own children
+        GuiNode dropdown = new GuiNode("DropDownMenu", "x", null, 0, 0, 50, 50, 60, true, true,
+                List.of(node("c", 0, 0, 10, 10, 0), node("d", 5, 5, 10, 10, 0)), null);
+        assertEquals(List.of(Layout.Kind.TEXT, Layout.Kind.OVERLAP), kinds(List.of(node("a", 0, 0, 50, 20, 0), dropdown)));
     }
 }
