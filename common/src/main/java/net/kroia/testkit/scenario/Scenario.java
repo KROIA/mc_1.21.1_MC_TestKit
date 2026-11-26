@@ -50,7 +50,7 @@ public final class Scenario {
     public static final int DEFAULT_TIMEOUT_TICKS = 6000;
     private static final long POLL_MS = 50;
 
-    private record Step(String instance, String name, Supplier<TestResult> action) {}
+    private record Step(String instance, String name, Supplier<TestResult> action, int untilTicks) {}
 
     private final String name;
     private final List<Step> steps = new ArrayList<>();
@@ -66,7 +66,19 @@ public final class Scenario {
     }
 
     public Scenario step(String instance, String stepName, Supplier<TestResult> action) {
-        steps.add(new Step(instance, stepName, action));
+        steps.add(new Step(instance, stepName, action, 0));
+        return this;
+    }
+
+    /**
+     * A step that waits for a condition: {@code check} runs once per tick of that instance (server ticks on a server,
+     * client ticks on a client), each attempt as its own short task, until it passes. After {@code timeoutTicks}
+     * ticks the step fails with the last attempt's message. The instance keeps ticking between attempts, so
+     * tick-driven work (e.g. order matching in the server tick) can happen. A plain {@link #step} that polls in a
+     * loop blocks the tick for as long as it polls.
+     */
+    public Scenario stepUntil(String instance, String stepName, Supplier<TestResult> check, int timeoutTicks) {
+        steps.add(new Step(instance, stepName, check, Math.max(1, timeoutTicks)));
         return this;
     }
 
@@ -109,14 +121,17 @@ public final class Scenario {
             String what = "step " + (i + 1) + " '" + step.name() + "' on " + step.instance();
             Path done = base.resolve((i + 1) + ".done");
             if (step.instance().equals(me)) {
-                TestResult r;
-                try {
-                    r = executor.apply(step.action());
-                } catch (Throwable t) {
-                    r = TestResult.error(testName, t.toString());
+                TestResult r = attempt(testName, step, executor);
+                long start = ticks.getAsLong(), seen = start;
+                while (!passed(r) && seen - start < step.untilTicks()) { // stepUntil: next attempt on the next tick
+                    while (ticks.getAsLong() == seen)
+                        if (!sleep(1)) return TestResult.error(testName, "interrupted");
+                    seen = ticks.getAsLong();
+                    r = attempt(testName, step, executor);
                 }
-                if (r == null || r.getStatus() != TestResult.Status.PASS) {
-                    String msg = what + " failed: " + (r == null ? "returned null" : r.getMessage());
+                if (!passed(r)) {
+                    String msg = what + (step.untilTicks() > 0 ? " failed after " + step.untilTicks() + " ticks: " : " failed: ")
+                            + (r == null ? "returned null" : r.getMessage());
                     mark(abort, msg);
                     return TestResult.fail(testName, msg);
                 }
@@ -131,15 +146,33 @@ public final class Scenario {
                     mark(abort, msg);
                     return TestResult.fail(testName, msg);
                 }
-                try {
-                    Thread.sleep(POLL_MS);
-                } catch (InterruptedException e) {
-                    Thread.currentThread().interrupt();
-                    return TestResult.error(testName, "interrupted");
-                }
+                if (!sleep(POLL_MS)) return TestResult.error(testName, "interrupted");
             }
         }
         return TestResult.pass(testName, null);
+    }
+
+    private static TestResult attempt(String testName, Step step, Function<Supplier<TestResult>, TestResult> executor) {
+        try {
+            return executor.apply(step.action());
+        } catch (Throwable t) {
+            return TestResult.error(testName, t.toString());
+        }
+    }
+
+    private static boolean passed(TestResult r) {
+        return r != null && r.getStatus() == TestResult.Status.PASS;
+    }
+
+    /** @return false if interrupted (the interrupt flag is set again) */
+    private static boolean sleep(long ms) {
+        try {
+            Thread.sleep(ms);
+            return true;
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            return false;
+        }
     }
 
     /** Runs {@code task} on the server thread and waits for it (at most 60 s). Call it from the test thread only. */
