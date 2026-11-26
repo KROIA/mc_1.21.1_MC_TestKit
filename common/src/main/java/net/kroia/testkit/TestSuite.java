@@ -119,6 +119,7 @@ public abstract class TestSuite {
      * Waits for {@code future} while the server keeps running its queued tasks (on the server thread, via
      * {@code managedBlock}), so work the future needs on the server thread, or callbacks it schedules there,
      * cannot deadlock against the waiting test. Off the server thread (or without a server) it simply blocks.
+     * The server does not tick meanwhile (see {@link #pumpUntil}).
      *
      * @return the result
      * @throws IllegalStateException on timeout; a failed future rethrows its cause wrapped
@@ -133,6 +134,8 @@ public abstract class TestSuite {
     /**
      * Runs queued server tasks until {@code done} is true or the timeout passed. From MC 1.21.9 on it also
      * handles queued incoming packets, so client requests are answered while the test waits.
+     * The server does not tick meanwhile: work done in tick events (e.g. order matching) waits until the test
+     * returns. To wait for such work in a scenario, use {@link net.kroia.testkit.scenario.Scenario#stepUntil}.
      *
      * @return {@code done} at the end
      */
@@ -155,7 +158,7 @@ public abstract class TestSuite {
         return done.getAsBoolean();
     }
 
-    /** Runs queued server tasks for {@code millis} (lets async callbacks that hop to the server thread arrive). */
+    /** Runs queued server tasks for {@code millis} (lets async callbacks that hop to the server thread arrive); no server tick meanwhile. */
     protected void pump(long millis) {
         pumpUntil(() -> false, millis);
     }
