@@ -91,6 +91,40 @@ class ScenarioTest {
                 "master check on server"), log);
     }
 
+    /** TK-15: one attempt per tick, so the ticks seen by the attempts are all different, and the step waits for them. */
+    static TestResult runUntil(Path dir, AtomicLong ticks, java.util.function.Supplier<TestResult> check, int timeoutTicks) throws Exception {
+        var f = CompletableFuture.supplyAsync(() -> Scenario.named("wait").stepUntil("a", "filled", check, timeoutTicks)
+                .run("t", "a", dir, Set.of("a"), ticks::get, action -> action.get()));
+        while (!f.isDone()) {
+            ticks.incrementAndGet();
+            Thread.sleep(2);
+        }
+        return f.join();
+    }
+
+    @Test
+    void stepUntilRetriesOncePerTickUntilItPasses(@TempDir Path dir) throws Exception {
+        AtomicLong ticks = new AtomicLong();
+        List<Long> attempts = new CopyOnWriteArrayList<>();
+        TestResult r = runUntil(dir, ticks, () -> {
+            attempts.add(ticks.get());
+            return attempts.size() < 4 ? TestResult.fail("filled", "no fill yet") : TestResult.pass("filled", null);
+        }, 1000);
+        assertEquals(TestResult.Status.PASS, r.getStatus(), r.getMessage());
+        assertEquals(4, attempts.size());
+        assertEquals(4, Set.copyOf(attempts).size(), "more than one attempt in a tick: " + attempts);
+    }
+
+    @Test
+    void stepUntilTimesOutWithTheLastMessage(@TempDir Path dir) throws Exception {
+        AtomicLong ticks = new AtomicLong();
+        java.util.concurrent.atomic.AtomicInteger n = new java.util.concurrent.atomic.AtomicInteger();
+        TestResult r = runUntil(dir, ticks, () -> TestResult.fail("filled", "attempt " + n.incrementAndGet()), 20);
+        assertEquals(TestResult.Status.FAIL, r.getStatus());
+        assertTrue(n.get() > 1, "retried: " + n.get());
+        assertTrue(r.getMessage().contains("step 1 'filled' on a failed after 20 ticks: attempt " + n.get()), r.getMessage());
+    }
+
     @Test
     void skippedWhenTheSetupLacksAnInstance(@TempDir Path dir) {
         TestResult r = trade(new CopyOnWriteArrayList<>(), TestResult.Status.PASS).run("t", "a", dir, Set.of("a"), () -> 0, s -> s.get());
