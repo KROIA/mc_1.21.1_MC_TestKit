@@ -23,6 +23,23 @@ public final class ClientCompat {
         return Minecraft.getInstance().getWindow().handle(); // mc>=1.21.9
     }
 
+    /** @return true while the game window is minimized (26.3 replaced GLFW with SDL3) */
+    public static boolean isWindowMinimized() {
+        return org.lwjgl.glfw.GLFW.glfwGetWindowAttrib(windowHandle(), org.lwjgl.glfw.GLFW.GLFW_ICONIFIED) != 0; // mc<=26.2
+        //return (org.lwjgl.sdl.SDLVideo.SDL_GetWindowFlags(windowHandle()) & org.lwjgl.sdl.SDLVideo.SDL_WINDOW_MINIMIZED) != 0; // mc>=26.3
+    }
+
+    /** Brings a minimized window back; the size change may arrive a few frames later. */
+    public static void restoreWindow() {
+        org.lwjgl.glfw.GLFW.glfwRestoreWindow(windowHandle()); // mc<=26.2
+        //org.lwjgl.sdl.SDLVideo.SDL_RestoreWindow(windowHandle()); // mc>=26.3
+    }
+
+    public static void minimizeWindow() {
+        org.lwjgl.glfw.GLFW.glfwIconifyWindow(windowHandle()); // mc<=26.2
+        //org.lwjgl.sdl.SDLVideo.SDL_MinimizeWindow(windowHandle()); // mc>=26.3
+    }
+
     public static com.mojang.blaze3d.pipeline.RenderTarget mainRenderTarget() {
         //return Minecraft.getInstance().getMainRenderTarget(); // mc<=26.1
         return Minecraft.getInstance().gameRenderer.mainRenderTarget(); // mc>=26.2
