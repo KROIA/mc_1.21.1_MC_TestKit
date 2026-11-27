@@ -17,6 +17,12 @@ public final class ClientCompat {
         //Minecraft.getInstance().gui.setScreen(screen); // mc>=26.2
     }
 
+    /** GLFW handle of the game window. */
+    public static long windowHandle() {
+        //return Minecraft.getInstance().getWindow().getWindow(); // mc<=1.21.8
+        return Minecraft.getInstance().getWindow().handle(); // mc>=1.21.9
+    }
+
     public static com.mojang.blaze3d.pipeline.RenderTarget mainRenderTarget() {
         return Minecraft.getInstance().getMainRenderTarget(); // mc<=26.1
         //return Minecraft.getInstance().gameRenderer.mainRenderTarget(); // mc>=26.2
