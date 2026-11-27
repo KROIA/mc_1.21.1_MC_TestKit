@@ -4,6 +4,7 @@ import net.kroia.testkit.TestKitMod;
 import net.kroia.testkit.compat.ClientCompat;
 import net.minecraft.client.Minecraft;
 import org.jetbrains.annotations.Nullable;
+import org.lwjgl.glfw.GLFW;
 
 import javax.imageio.ImageIO;
 import java.awt.Rectangle;
@@ -206,6 +207,14 @@ public final class Screenshots {
             if (level == null) throw new IllegalStateException("no world: screenshots need a joined world");
             return new long[]{ClientCompat.dayTime(level), level.getGameTime(), level.isThundering() ? 2 : level.isRaining() ? 1 : 0};
         });
+        // A minimized window reports 0x0 and ignores resizes: restore it first, minimize it again afterwards.
+        boolean minimized = Gui.onClient(() -> {
+            long h = ClientCompat.windowHandle();
+            if (GLFW.glfwGetWindowAttrib(h, GLFW.GLFW_ICONIFIED) == 0) return false;
+            GLFW.glfwRestoreWindow(h);
+            return true;
+        });
+        if (minimized) Gui.waitUntil(() -> Minecraft.getInstance().getWindow().getScreenWidth() > 0, RESIZE_TICKS);
         int[] old = Gui.onClient(() -> {
             var w = Minecraft.getInstance().getWindow();
             return new int[]{w.getScreenWidth(), w.getScreenHeight(), Minecraft.getInstance().options.guiScale().get(), ClientCompat.isHudHidden() ? 1 : 0};
@@ -229,7 +238,8 @@ public final class Screenshots {
             return action.get();
         } finally {
             Gui.onClient(() -> {
-                Minecraft.getInstance().getWindow().setWindowed(old[0], old[1]);
+                if (old[0] > 0 && old[1] > 0) Minecraft.getInstance().getWindow().setWindowed(old[0], old[1]);
+                if (minimized) GLFW.glfwIconifyWindow(ClientCompat.windowHandle());
                 ClientCompat.setHudHidden(old[3] == 1);
             });
             Gui.setGuiScale(old[2]);
