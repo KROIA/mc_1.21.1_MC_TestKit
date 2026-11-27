@@ -4,7 +4,6 @@ import net.kroia.testkit.TestKitMod;
 import net.kroia.testkit.compat.ClientCompat;
 import net.minecraft.client.Minecraft;
 import org.jetbrains.annotations.Nullable;
-import org.lwjgl.glfw.GLFW;
 
 import javax.imageio.ImageIO;
 import java.awt.Rectangle;
@@ -209,9 +208,8 @@ public final class Screenshots {
         });
         // A minimized window reports 0x0 and ignores resizes: restore it first, minimize it again afterwards.
         boolean minimized = Gui.onClient(() -> {
-            long h = ClientCompat.windowHandle();
-            if (GLFW.glfwGetWindowAttrib(h, GLFW.GLFW_ICONIFIED) == 0) return false;
-            GLFW.glfwRestoreWindow(h);
+            if (!ClientCompat.isWindowMinimized()) return false;
+            ClientCompat.restoreWindow();
             return true;
         });
         if (minimized) Gui.waitUntil(() -> Minecraft.getInstance().getWindow().getScreenWidth() > 0, RESIZE_TICKS);
@@ -239,7 +237,7 @@ public final class Screenshots {
         } finally {
             Gui.onClient(() -> {
                 if (old[0] > 0 && old[1] > 0) Minecraft.getInstance().getWindow().setWindowed(old[0], old[1]);
-                if (minimized) GLFW.glfwIconifyWindow(ClientCompat.windowHandle());
+                if (minimized) ClientCompat.minimizeWindow();
                 ClientCompat.setHudHidden(old[3] == 1);
             });
             Gui.setGuiScale(old[2]);
